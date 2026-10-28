@@ -1,0 +1,21 @@
+# Entorno virtual de Python
+.venv/
+venv/
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+
+# Archivos de resultados generados
+reporte*.pdf
+datos_validos.csv
+incidencias.csv
+
+# Variables de entorno y secretos
+.env
+
+# Configuración local del editor
+.vscode/
+*.db
+
+*.pfd
