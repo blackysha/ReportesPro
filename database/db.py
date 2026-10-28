@@ -1,4 +1,3 @@
-
 import json
 import sqlite3
 from pathlib import Path
@@ -14,7 +13,8 @@ PERFILES_VALIDOS = (
     "general",
     "ventas",
     "inventario",
-    "clientes"
+    "clientes",
+    "consolidado"
 )
 
 

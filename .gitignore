@@ -1,21 +1,39 @@
-# Entorno virtual de Python
+
+# Entornos virtuales de Python
 .venv/
 venv/
+env/
 
 # Archivos temporales de Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
-# Archivos de resultados generados
+# Archivos generados por ReportesPro
 reporte*.pdf
 datos_validos.csv
 incidencias.csv
 
+# Bases de datos locales
+*.db
+*.sqlite
+*.sqlite3
+
 # Variables de entorno y secretos
 .env
+.env.*
+!.env.example
+.streamlit/secrets.toml
 
-# Configuración local del editor
+# Configuración local de VS Code
 .vscode/
-*.db
 
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de Office
+~$*
+
+# Archivos con extensión incorrecta
 *.pfd
