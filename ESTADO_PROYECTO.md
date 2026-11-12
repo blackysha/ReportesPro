@@ -57,6 +57,9 @@ Comparación contra respaldo previo: las siete empresas y los doce reportes se
 conservaron sin cambios; los cinco usuarios anteriores conservaron id, nombre,
 correo y estado, y las cuatro contraseñas ajenas al propietario no se modificaron.
 Total tras añadir cuentas de prueba: diez usuarios, con un único administrador.
+Cambios de código y organización guardados localmente en la rama
+desarrollo-reportespro-3 (commit de funcionalidad 955f430 y normalización posterior
+de archivos de texto). No se ejecutó push ni se publicaron datos en GitHub.
 Consultar docs/PRUEBA_LAN.md y docs/ESTRUCTURA.md antes de continuar.
 
 ## Alcance
