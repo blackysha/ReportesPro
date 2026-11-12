@@ -1,0 +1,4 @@
+﻿nombre,correo,edad,monto
+Persona A 2,personaa2@example.invalid,25,200
+Persona B 2,personab2@example.invalid,40,300
+Persona incorrecta,personac2@example.invalid,-1,20

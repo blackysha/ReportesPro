@@ -1,0 +1,10 @@
+# Ejemplo para revisar durante el despliegue; no se aplica automáticamente.
+[server]
+address = "127.0.0.1"
+maxUploadSize = 10
+enableCORS = true
+enableXsrfProtection = true
+headless = true
+
+[client]
+showErrorDetails = "none"

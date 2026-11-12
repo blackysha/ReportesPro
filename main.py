@@ -1,6 +1,8 @@
-"""Motor de consolidación y análisis de ReportesPro 2.0."""
+"""Motor de consolidación y análisis de ReportesPro 3.0."""
 from __future__ import annotations
 import io
+import math
+import zipfile
 import re
 import unicodedata
 from collections import defaultdict
@@ -21,6 +23,13 @@ PROFILES = {
     'general': ('nombre','correo','edad','monto'),
 }
 LABELS = {'ventas':'Ventas','inventario':'Inventario','clientes':'Clientes','general':'General'}
+MAX_FILE_BYTES = 10 * 1024 * 1024
+MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+MAX_SHEETS = 25
+MAX_ROWS = 100_000
+MAX_TOTAL_ROWS = 200_000
+MAX_CELLS = 2_000_000
+MAX_COLUMNS = 256
 ALIASES = {'articulo':'producto','articulo_servicio':'producto','servicio':'producto','unidades':'cantidad',
            'precio_unitario':'precio','precio_unit':'precio','existencias':'stock','existencia':'stock',
            'fecha_venta':'fecha','email':'correo','e_mail':'correo','fecha_alta':'fecha_registro',
@@ -40,21 +49,61 @@ def normalize_columns(df):
     return result
 
 def read_sheets(filename: str, data: bytes) -> dict[str,pd.DataFrame]:
+    if not isinstance(data, bytes) or not data:
+        raise ValueError('El archivo está vacío.')
+    if len(data) > MAX_FILE_BYTES:
+        raise ValueError('El archivo supera el límite de 10 MB.')
     suffix = filename.lower().rsplit('.',1)[-1]
     if suffix == 'csv':
         last=None
         for encoding in ('utf-8-sig','cp1252','latin1'):
             try:
-                df=pd.read_csv(io.BytesIO(data), encoding=encoding, sep=None, engine='python')
+                sample = pd.read_csv(io.BytesIO(data), encoding=encoding, sep=None, engine='python', nrows=0)
+                if len(sample.columns) > MAX_COLUMNS:
+                    raise ValueError('Se admiten como máximo 256 columnas.')
+                max_rows = min(MAX_ROWS, MAX_CELLS // max(1, len(sample.columns)))
+                df=pd.read_csv(io.BytesIO(data), encoding=encoding, sep=None, engine='python', nrows=max_rows + 1)
+                _check_frames({'CSV': df})
                 return {'CSV':normalize_columns(df)}
             except UnicodeDecodeError as exc:
                 last=exc
         raise ValueError(f'No se pudo leer el CSV: {last}')
     if suffix in ('xlsx','xls'):
-        frames=pd.read_excel(io.BytesIO(data), sheet_name=None)
+        if suffix == 'xlsx':
+            with zipfile.ZipFile(io.BytesIO(data)) as book:
+                entries = book.infolist()
+                if len(entries) > 2000 or sum(e.file_size for e in entries) > MAX_UNCOMPRESSED_BYTES:
+                    raise ValueError('El libro Excel descomprimido supera los límites permitidos.')
+                if any(e.flag_bits & 1 for e in entries):
+                    raise ValueError('No se admiten libros cifrados.')
+        elif not data.startswith(bytes.fromhex('D0CF11E0A1B11AE1')):
+            raise ValueError('El contenido no corresponde a un archivo XLS.')
+        with pd.ExcelFile(io.BytesIO(data)) as book:
+            if len(book.sheet_names) > MAX_SHEETS:
+                raise ValueError('Se admiten como máximo 25 hojas.')
+            frames = {}
+            for name in book.sheet_names:
+                sample = pd.read_excel(book, sheet_name=name, nrows=0)
+                if len(sample.columns) > MAX_COLUMNS:
+                    raise ValueError('Se admiten como máximo 256 columnas.')
+                remaining = MAX_CELLS - sum(df.size for df in frames.values())
+                max_rows = min(MAX_ROWS, remaining // max(1, len(sample.columns)))
+                frames[name] = pd.read_excel(book, sheet_name=name, nrows=max_rows + 1)
+                _check_frames(frames)
         if not frames: raise ValueError('El libro no contiene hojas.')
         return {name:normalize_columns(frame) for name,frame in frames.items()}
     raise ValueError('Formato no admitido. Sube CSV, XLSX o XLS.')
+
+
+def _check_frames(frames):
+    if any(len(df.columns) > MAX_COLUMNS for df in frames.values()):
+        raise ValueError('Se admiten como máximo 256 columnas.')
+    if any(len(df) > MAX_ROWS for df in frames.values()):
+        raise ValueError('Una hoja supera las 100.000 filas.')
+    if sum(len(df) for df in frames.values()) > MAX_TOTAL_ROWS:
+        raise ValueError('El documento supera las 200.000 filas totales.')
+    if sum(df.size for df in frames.values()) > MAX_CELLS:
+        raise ValueError('El documento supera los dos millones de celdas.')
 
 def detect_profile(frame):
     columns=set(frame.columns)
@@ -63,6 +112,8 @@ def detect_profile(frame):
 
 def _validate(frame,profile,sheet):
     df=frame.copy().reset_index(drop=True)
+    if {'hoja_origen', 'fila_origen', 'perfil_analisis'} & set(df.columns):
+        raise ValueError('El archivo utiliza nombres de columnas reservados para trazabilidad.')
     df.insert(0,'hoja_origen',sheet)
     df.insert(1,'fila_origen',range(2,len(df)+2))
     problems=[]
@@ -75,6 +126,8 @@ def _validate(frame,profile,sheet):
             val=row[col]
             if pd.isna(val) or (isinstance(val,str) and not val.strip()):
                 problems.append({'hoja':sheet,'fila':i+2,'campo':col,'problema':'Valor vacío o inválido'})
+            elif col in ('cantidad','precio','stock','costo','edad','monto') and not math.isfinite(val):
+                problems.append({'hoja':sheet,'fila':i+2,'campo':col,'problema':'Debe ser un número finito'})
             elif col in ('cantidad',) and val<=0:
                 problems.append({'hoja':sheet,'fila':i+2,'campo':col,'problema':'Debe ser mayor que cero'})
             elif col in ('precio','stock','costo','edad','monto') and val<0:
@@ -139,6 +192,8 @@ def analyze(filename,data):
             m.update(valor_inventario=float((valid['stock']*valid['costo']).sum()),productos_agotados=int((valid['stock']==0).sum()))
         elif profile=='clientes':m['clientes_validos']=int(len(valid))
         elif profile=='general':m['monto_total_valido']=float(valid['monto'].sum())
+        if any(isinstance(value, float) and not math.isfinite(value) for value in m.values()):
+            raise ValueError('Los cálculos exceden el rango numérico permitido.')
         indicators[profile]=m
     all_issues=pd.concat(issues_all,ignore_index=True) if issues_all else pd.DataFrame(columns=['hoja','fila','campo','problema'])
     return {'archivo':filename,'manifest':pd.DataFrame(manifest),'consolidated':consolidated,
@@ -152,17 +207,32 @@ def _excel_safe(df):
             result[col]=result[col].dt.tz_localize(None) if getattr(result[col].dt,'tz',None) is not None else result[col]
         elif result[col].dtype=='object':
             result[col]=result[col].map(lambda v: v.replace(tzinfo=None) if isinstance(v,datetime) and v.tzinfo else v)
+    result = result.map(_safe_cell)
+    result.columns = [_safe_cell(c) for c in result.columns]
     return result
+
+
+def _safe_cell(value):
+    if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@')):
+        return "'" + value
+    return value
+
+
+def make_csv(result):
+    """CSV UTF-8 para Excel, con neutralización de fórmulas."""
+    frames = [df.assign(perfil_analisis=LABELS[profile]) for profile, df in result['valid'].items()]
+    frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    return _excel_safe(frame).to_csv(index=False).encode('utf-8-sig')
 
 def make_excel(result):
     buffer=io.BytesIO()
     with pd.ExcelWriter(buffer,engine='openpyxl',datetime_format='yyyy-mm-dd') as writer:
-        result['manifest'].to_excel(writer,sheet_name='Resumen_hojas',index=False)
+        _excel_safe(result['manifest']).to_excel(writer,sheet_name='Resumen_hojas',index=False)
         for profile,df in result['valid'].items():
             _excel_safe(df).to_excel(writer,sheet_name=f'{LABELS[profile]}_unificado',index=False)
         for profile,df in result['invalid'].items():
             if not df.empty: _excel_safe(df).to_excel(writer,sheet_name=f'{LABELS[profile]}_excluidos',index=False)
-        result['issues'].to_excel(writer,sheet_name='Incidencias',index=False)
+        _excel_safe(result['issues']).to_excel(writer,sheet_name='Incidencias',index=False)
         rows=[{'Tipo':LABELS[p],'Indicador':k.replace('_',' ').capitalize(),'Valor':v} for p,m in result['indicators'].items() for k,v in m.items()]
         pd.DataFrame(rows).to_excel(writer,sheet_name='Indicadores',index=False)
         for profile,df in result['breakdowns'].items():

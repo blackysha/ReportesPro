@@ -1,0 +1,5 @@
+﻿nombre,correo,fecha_registro
+Cliente A 2,clientea2@example.invalid,2026-11-01
+Cliente B 2,clienteb2@example.invalid,2026-11-02
+Cliente A repetido,clientea2@example.invalid,2026-11-03
+Cliente incorrecto,correo_incorrecto,2026-11-04

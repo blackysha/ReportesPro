@@ -1,5 +1,7 @@
 import json
 import sqlite3
+import os
+from contextlib import nullcontext
 from pathlib import Path
 
 
@@ -7,7 +9,17 @@ from pathlib import Path
 # CONFIGURACIÓN DE LA BASE DE DATOS
 # =========================================
 
-DB_PATH = Path(__file__).resolve().parent / "reportespro.db"
+DB_PATH = Path(os.environ.get("REPORTESPRO_DB_PATH", Path(__file__).resolve().parent / "reportespro.db")).resolve()
+
+
+class Conexion(sqlite3.Connection):
+    """Conserva commit/rollback de SQLite y cierra al salir del contexto."""
+
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
 
 PERFILES_VALIDOS = (
     "general",
@@ -21,7 +33,7 @@ PERFILES_VALIDOS = (
 def conectar():
     """Establece una conexión con SQLite."""
 
-    conexion = sqlite3.connect(DB_PATH)
+    conexion = sqlite3.connect(DB_PATH, timeout=10, factory=Conexion)
 
     conexion.execute(
         "PRAGMA foreign_keys = ON"
@@ -201,7 +213,8 @@ def guardar_reporte(
     empresa_id,
     archivo,
     indicadores,
-    perfil="general"
+    perfil="general",
+    _conexion=None,
 ):
     """
     Guarda un reporte junto con su perfil
@@ -223,7 +236,7 @@ def guardar_reporte(
         allow_nan=False
     )
 
-    with conectar() as conexion:
+    with (nullcontext(_conexion) if _conexion is not None else conectar()) as conexion:
 
         cursor = conexion.execute(
             """
@@ -258,7 +271,7 @@ def guardar_reporte(
 # CONSULTAR HISTORIAL
 # =========================================
 
-def listar_reportes(empresa_id, perfil=None):
+def listar_reportes(empresa_id, perfil=None, _conexion=None):
     """
     Devuelve los reportes de una empresa.
 
@@ -272,7 +285,7 @@ def listar_reportes(empresa_id, perfil=None):
             f"Perfil no válido: {perfil}"
         )
 
-    conexion = conectar()
+    conexion = _conexion if _conexion is not None else conectar()
 
     try:
 
@@ -328,7 +341,8 @@ def listar_reportes(empresa_id, perfil=None):
 
     finally:
 
-        conexion.close()
+        if _conexion is None:
+            conexion.close()
 
 
 def obtener_reporte(reporte_id):
@@ -514,6 +528,108 @@ def obtener_evolucion_empresa(
 
 
 # =========================================
+# ACCESO PRIVADO - REPORTESPRO 3.0
+# =========================================
+
+def registrar_empresa_usuario(usuario_id, nombre, correo="", version_sesion=None):
+    """Registra una empresa asociada a su propietario."""
+    nombre = nombre.strip()
+    correo = (correo or "").strip()
+
+    if not nombre:
+        raise ValueError("El nombre de la empresa es obligatorio.")
+
+    with conectar() as conexion:
+        conexion.execute("BEGIN IMMEDIATE")
+        usuario = conexion.execute(
+            "SELECT version_sesion FROM usuarios WHERE id = ? AND activo = 1",
+            (usuario_id,)
+        ).fetchone()
+
+        if usuario is None or (version_sesion is not None and usuario[0] != version_sesion):
+            raise PermissionError("La cuenta o la sesión no están disponibles.")
+
+        cursor = conexion.execute(
+            """
+            INSERT INTO empresas (nombre, correo, usuario_id)
+            VALUES (?, ?, ?)
+            """,
+            (nombre, correo, usuario_id)
+        )
+
+        return cursor.lastrowid
+
+
+def listar_empresas_usuario(usuario_id):
+    """Lista solamente las empresas del usuario."""
+    with conectar() as conexion:
+        conexion.row_factory = sqlite3.Row
+
+        filas = conexion.execute(
+            """
+            SELECT e.id, e.nombre, e.correo
+            FROM empresas e
+            JOIN usuarios u ON u.id = e.usuario_id
+            WHERE e.usuario_id = ? AND u.activo = 1
+            ORDER BY e.nombre, e.id
+            """,
+            (usuario_id,)
+        ).fetchall()
+
+        return [dict(fila) for fila in filas]
+
+
+def usuario_es_propietario(usuario_id, empresa_id):
+    """Comprueba que la empresa pertenece al usuario."""
+    with conectar() as conexion:
+        fila = conexion.execute(
+            """
+            SELECT 1
+            FROM empresas
+            JOIN usuarios ON usuarios.id = empresas.usuario_id
+            WHERE empresas.id = ? AND usuario_id = ? AND usuarios.activo = 1
+            """,
+            (empresa_id, usuario_id)
+        ).fetchone()
+
+        return fila is not None
+
+
+def guardar_reporte_usuario(
+    usuario_id,
+    empresa_id,
+    archivo,
+    indicadores,
+    perfil="consolidado",
+    version_sesion=None,
+):
+    """Guarda un reporte solo si el usuario es propietario."""
+    with conectar() as conexion:
+        conexion.execute("BEGIN IMMEDIATE")
+        _verificar_acceso(conexion, usuario_id, empresa_id, version_sesion)
+        return guardar_reporte(empresa_id, archivo, indicadores, perfil, _conexion=conexion)
+
+
+def listar_reportes_usuario(usuario_id, empresa_id, version_sesion=None):
+    """Consulta el historial solo si pertenece al usuario."""
+    with conectar() as conexion:
+        conexion.execute("BEGIN")
+        _verificar_acceso(conexion, usuario_id, empresa_id, version_sesion)
+        return listar_reportes(empresa_id, _conexion=conexion)
+
+
+def _verificar_acceso(conexion, usuario_id, empresa_id, version_sesion=None):
+    usuario = conexion.execute(
+        """SELECT u.version_sesion FROM empresas e
+           JOIN usuarios u ON u.id = e.usuario_id
+           WHERE e.id = ? AND u.id = ? AND u.activo = 1""",
+        (empresa_id, usuario_id),
+    ).fetchone()
+    if usuario is None or (version_sesion is not None and usuario[0] != version_sesion):
+        raise PermissionError("No tienes permiso o tu sesión ya no es válida.")
+
+
+# =========================================
 # EJECUCIÓN DIRECTA
 # =========================================
 
@@ -533,3 +649,45 @@ if __name__ == "__main__":
         "Perfiles disponibles: "
         + ", ".join(PERFILES_VALIDOS)
     )
+
+
+def eliminar_empresa_usuario(usuario_id, empresa_id):
+    """
+    Elimina una empresa propiedad del usuario
+    y los reportes asociados a esa empresa.
+    """
+
+    with conectar() as conexion:
+        conexion.execute("BEGIN IMMEDIATE")
+        _verificar_acceso(conexion, usuario_id, empresa_id)
+        # Comprobar que la empresa pertenece al usuario.
+        propietario = conexion.execute(
+            """
+            SELECT id
+            FROM empresas
+            WHERE id = ? AND usuario_id = ?
+            """,
+            (empresa_id, usuario_id),
+        ).fetchone()
+
+        if propietario is None:
+            raise PermissionError(
+                "No tienes permiso para eliminar esta empresa."
+            )
+
+        # Eliminar primero sus reportes.
+        conexion.execute(
+            "DELETE FROM reportes WHERE empresa_id = ?",
+            (empresa_id,),
+        )
+
+        # Eliminar la empresa.
+        conexion.execute(
+            """
+            DELETE FROM empresas
+            WHERE id = ? AND usuario_id = ?
+            """,
+            (empresa_id, usuario_id),
+        )
+
+    return True

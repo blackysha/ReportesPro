@@ -18,15 +18,41 @@ incidencias.csv
 *.db
 *.sqlite
 *.sqlite3
+*.db-*
+*.sqlite-*
+*.sqlite3-*
+*.log
+
+# Respaldos de código heredados (no son módulos activos)
+*_backup.py
+*_pre_bloqueo.py
+web_app_antes_*.py
+web_app_respaldo_*.py
 
 # Variables de entorno y secretos
 .env
 .env.*
 !.env.example
 .streamlit/secrets.toml
+**/secrets*.toml
+*.pfx
+*.p12
+inventario_usuarios.csv
+accesos_5_laptops.csv
+admin_local.csv
+LAPTOP_*_ACCESO.txt
 
 # Configuración local de VS Code
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.local/
+*.key
+*.pem
+contraseñas/
+credenciales/
 
 # Archivos temporales del sistema
 .DS_Store
@@ -37,3 +63,15 @@ Thumbs.db
 
 # Archivos con extensión incorrecta
 *.pfd
+
+# Copias de seguridad locales
+backups/
+uploads/
+exports/
+
+# Archivos de cobertura y pruebas
+.coverage
+htmlcov/
+
+# Archivos temporales de recuperación de contraseñas
+database/reset_local_password.py

@@ -1,0 +1,4 @@
+﻿fecha,producto,cantidad,precio
+2026-11-11,Producto A,2,100
+2026-11-12,Producto B,3,50
+2026-11-12,Producto incorrecto,-1,10

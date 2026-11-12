@@ -1,0 +1,5 @@
+﻿producto,stock,costo
+Producto A,10,20
+Producto B,0,30
+Producto A,1,20
+Producto incorrecto,-2,10

@@ -1,0 +1,4 @@
+{
+  "version": "0.2.0",
+  "configurations": [{"name": "ReportesPro: depurar local", "type": "debugpy", "request": "launch", "module": "streamlit", "args": ["run", "web_app.py", "--server.address", "127.0.0.1", "--server.port", "8501"], "cwd": "${workspaceFolder}", "env": {"REPORTESPRO_ACCESS_MODE": "local"}, "console": "integratedTerminal", "justMyCode": true}]
+}

@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "ReportesPro: pruebas aisladas", "type": "process", "command": "${workspaceFolder}/.venv/Scripts/python.exe", "args": ["-B", "-m", "unittest", "discover", "-s", "tests", "-v"], "options": {"cwd": "${workspaceFolder}"}, "group": {"kind": "test", "isDefault": true}, "problemMatcher": []},
+    {"label": "ReportesPro: diagnostico", "type": "process", "command": "${workspaceFolder}/.venv/Scripts/python.exe", "args": ["-B", "-m", "scripts.diagnostico", "--security-config"], "options": {"cwd": "${workspaceFolder}"}, "problemMatcher": []},
+    {"label": "ReportesPro: administrador local", "type": "process", "command": "powershell.exe", "args": ["-NoProfile", "-File", "${workspaceFolder}/run_reportespro.ps1"], "options": {"cwd": "${workspaceFolder}"}, "problemMatcher": []},
+    {"label": "ReportesPro: prueba LAN sin administracion", "type": "process", "command": "powershell.exe", "args": ["-NoProfile", "-File", "${workspaceFolder}/run_pruebas_red.ps1"], "options": {"cwd": "${workspaceFolder}"}, "problemMatcher": []}
+  ]
+}

@@ -1,90 +1,75 @@
-# ReportesPro
+# ReportesPro 3.0
 
-Sistema de análisis de datos y generación de reportes empresariales desarrollado con Python.
-
-## Descripción
-
-ReportesPro permite procesar archivos CSV y Excel, validar información, calcular indicadores y generar reportes PDF. También permite registrar empresas y consultar el historial de los análisis realizados.
+Aplicación empresarial en Python, Streamlit y SQLite para analizar CSV/Excel,
+consolidar hojas y generar informes. Se continúa el proyecto existente y se
+conservan los datos históricos.
 
 ## Funcionalidades
 
-- Gestión y selección de empresas.
-- Carga de archivos CSV, XLSX y XLS.
-- Análisis general, ventas, inventario y clientes.
-- Validación de registros e identificación de incidencias.
-- Cálculo automático de indicadores.
-- Generación y descarga de informes PDF.
-- Exportación de resultados a CSV.
-- Historial de reportes almacenado en SQLite.
-- Filtros por empresa, perfil, archivo y fechas.
-- Visualización de estadísticas y gráficos.
+- Registro e inicio de sesión con Argon2 y bloqueo temporal por cuenta.
+- Empresas privadas e historial con comprobación de propietario.
+- Análisis de ventas, inventario, clientes y datos generales.
+- Validación de registros, incidencias y consolidación entre hojas.
+- Exportaciones PDF, XLSX y CSV; ZIP de PDF y Excel.
+- Administración de activación/desactivación de cuentas y roles existentes.
+- Recuperación por correo para cuentas normales; tokens de un solo uso.
+- Invalidación de sesiones, límites de duración e inactividad y auditoría.
+- Límites de archivos y neutralización de fórmulas al exportar.
+- Respaldos coherentes y diagnóstico de solo lectura.
 
-## Tecnologías utilizadas
+El historial conserva indicadores, no los documentos originales. Los indicadores
+por perfil se guardan en análisis nuevos; no se modificaron registros antiguos.
 
-- Python
-- Streamlit
-- pandas
-- ReportLab
-- SQLite
-- openpyxl y xlrd para formatos Excel
+## Instalación y ejecución local
 
-## Instalación
-
-Clonar el repositorio:
-
-```bash
-git clone https://github.com/TU_USUARIO/ReportesPro.git
-cd ReportesPro
-```
-
-Crear un entorno virtual:
-
-```bash
-python -m venv .venv
-```
-
-Activarlo en Windows PowerShell:
+Se verificó con Python 3.14.7 en Windows. Crear .venv solo si aún no existe:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -B -m pip check
 ```
 
-Instalar las dependencias:
+Configurar los secretos siguiendo [OPERACION.md](docs/OPERACION.md). Nunca
+incorporar secretos o bases reales al repositorio.
 
-```bash
-python -m pip install -r requirements.txt
+```powershell
+.\run_reportespro.ps1
 ```
 
-Ejecutar la aplicación:
+Si PowerShell impide ejecutar scripts, usar directamente:
 
-```bash
-python -m streamlit run web_app.py
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run web_app.py --server.address 127.0.0.1 --server.maxUploadSize 10
 ```
 
-Abrir en el navegador:
+## Verificación segura
 
-`http://localhost:8501`
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -B -m scripts.diagnostico --security-config
+```
 
-## Estructura principal
+Las pruebas usan bases temporales y correo simulado. No ejecutar los scripts
+heredados de login o correo contra cuentas reales como pruebas de regresión.
 
-- `web_app.py`: interfaz web.
-- `main.py`: procesamiento y análisis de datos.
-- `database/db.py`: gestión de la base de datos SQLite.
-- `datos_ejemplo.csv`: archivo de demostración.
-- `requirements.txt`: dependencias.
+## Documentación
 
-## Estado del proyecto
+- [Estado, pruebas y pendientes](ESTADO_PROYECTO.md).
+- [Operación, configuración, respaldos y producción](docs/OPERACION.md).
+- [Instrucciones permanentes para Codex](AGENTS.md).
+- [Administración local y prueba con cinco laptops](docs/PRUEBA_LAN.md).
+- [Estructura del repositorio](docs/ESTRUCTURA.md).
 
-Prototipo funcional en desarrollo. No dispone todavía de autenticación, permisos de acceso por empresa ni configuración de producción.
+Abrir `ReportesPro.code-workspace` para usar el intérprete, tareas y pruebas de
+VS Code. El administrador se limita a localhost:8501. Para usuarios de la LAN,
+`run_pruebas_red.ps1` usa HTTPS y rechaza administradores; no iniciar esa instancia
+hasta preparar la red y verificar el certificado en cada laptop.
 
-## Próximas mejoras
+## Alcance de la entrega
 
-- Autenticación y roles.
-- Pruebas automatizadas.
-- Integración con bases de datos de servidor.
-- Automatización de reportes.
-- Despliegue web seguro.
-
-## Autor
-
-Proyecto de portafolio desarrollado para demostrar conocimientos de Python, análisis de datos, bases de datos y desarrollo de aplicaciones.
+Versión local con mejoras verificadas. No se ha desplegado en Internet. Antes de
+producción externa faltan decisiones de alojamiento, HTTPS, controles del proxy,
+validación SMTP real autorizada y recuperación administrativa reforzada.
+SQLite requiere disco persistente y una sola instancia; no ofrece escalabilidad
+horizontal automática. Consultar las limitaciones y pendientes documentados.
