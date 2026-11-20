@@ -9,6 +9,7 @@ from database.db import conectar
 
 
 EVENTOS_PERMITIDOS = {
+    "EMPRESA_ASIGNADA",
     "LOGIN_EXITOSO",
     "LOGIN_FALLIDO",
     "LOGIN_BLOQUEADO",

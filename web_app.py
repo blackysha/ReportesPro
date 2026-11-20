@@ -5,6 +5,10 @@ import io
 import zipfile
 import hashlib
 import logging
+import os
+import sqlite3
+import re
+from datetime import date, timedelta
 
 from auth.sessions import iniciar_sesion, sesion_expirada, limpiar_sesion
 from auth.access_policy import validar_direccion_servidor, modo_acceso
@@ -13,10 +17,11 @@ from database.schema import preparar_base_datos
 import pandas as pd
 import streamlit as st
 
-from main import analyze, make_excel, make_pdf, make_csv, LABELS
+from main import analyze, analyze_weekly_sales, make_excel, make_pdf, make_csv, sales_amount, LABELS, SALES_CURRENCIES
 from database.recovery import restablecer_password
 from database.auditoria import registrar_evento
 from services.password_recovery_service import enviar_recuperacion, MENSAJE_PUBLICO
+from services.whatsapp import desvincular, generar_codigo
 
 from database.db import (
     registrar_empresa_usuario,
@@ -50,6 +55,31 @@ st.set_page_config(
     page_icon="📊",
     layout="wide",
 )
+
+# CSS estático: conserva el diseño de escritorio y adapta los controles táctiles.
+st.html("""
+<style>
+@media (max-width: 640px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    [data-testid="stMain"] h1 { font-size: 1.8rem; overflow-wrap: anywhere; }
+    [data-testid="stTabs"] [role="tablist"] {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        height: auto;
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        min-height: 44px;
+        white-space: normal;
+    }
+    [data-testid="stMain"] button { min-height: 44px; }
+    [data-testid="stMain"] input,
+    [data-testid="stMain"] textarea { font-size: 16px; }
+}
+</style>
+""")
 
 try:
     validar_direccion_servidor(st.get_option("server.address"))
@@ -445,28 +475,59 @@ def mostrar_panel():
     # SUBIR DOCUMENTO
     # ----------------------------------------------
 
-    st.header("2. Subir documento")
+    st.header("2. Preparar análisis")
+    semanal = not invitado and st.radio(
+        "Tipo de análisis",
+        ["Cierre semanal de ventas", "Análisis de un documento"],
+        horizontal=True,
+    ) == "Cierre semanal de ventas"
+    inicio = None
+    moneda = None
+    referencias = {}
+    if semanal:
+        hoy = date.today()
+        inicio = st.date_input("Lunes de la semana a cerrar", value=hoy - timedelta(days=hoy.weekday() + 7))
+        st.caption("Carga hojas de ventas con fecha, producto, cantidad y precio. Usa fechas "
+                   "AAAA-MM-DD o DD/MM/AAAA. Si una hoja mezcla monedas, indica DOP, USD o EUR en cada fila.")
+        st.download_button(
+            "Descargar plantilla de ventas", data="fecha,producto,cantidad,precio,moneda\n",
+            file_name="plantilla_ventas.csv", mime="text/csv", on_click="ignore",
+        )
+        moneda = st.selectbox(
+            "Moneda para hojas sin columna moneda", [None, *SALES_CURRENCIES],
+            format_func=lambda code: code or "Exigir moneda en cada hoja",
+        )
+        with st.expander("Totales de referencia por moneda (opcional)"):
+            for column, code in zip(st.columns(len(SALES_CURRENCIES)), SALES_CURRENCIES):
+                value = column.text_input(
+                    f"Total de referencia {code}",
+                    help="Usa el total del sistema de ventas para la semana. Ejemplo 12500.50, sin separador de miles.",
+                ).strip()
+                if value:
+                    referencias[code] = value
+        cargados = st.file_uploader(
+            "Archivos de ventas", type=["csv", "xlsx", "xls"], accept_multiple_files=True,
+            key="archivos_cierre", help="Hasta diez archivos, 10 MB y 25 hojas en total.",
+        )
+    else:
+        archivo = st.file_uploader(
+            "Selecciona un archivo CSV o Excel",
+            type=["csv", "xlsx", "xls"],
+            key="archivo_analisis",
+            help="Máximo 10 MB, 25 hojas, 100.000 filas por hoja y 200.000 filas totales.",
+        )
+        cargados = [archivo] if archivo is not None else []
 
-    archivo = st.file_uploader(
-        "Selecciona un archivo CSV o Excel",
-        type=["csv", "xlsx", "xls"],
-        key="archivo_analisis",
-        help="Máximo 10 MB, 25 hojas, 100.000 filas por hoja y 200.000 filas totales.",
-    )
-
-    if archivo is not None:
-
-        datos = archivo.getvalue()
-
-        huella = hashlib.sha256(
-            datos
-        ).hexdigest()
+    if cargados:
+        archivos = [(archivo.name, archivo.getvalue()) for archivo in cargados]
 
         clave = (
             identidad,
             empresa["id"],
-            archivo.name,
-            huella,
+            inicio,
+            moneda,
+            tuple(referencias.items()),
+            tuple((nombre, hashlib.sha256(datos).digest()) for nombre, datos in archivos),
         )
 
         if st.button(
@@ -480,10 +541,24 @@ def mostrar_panel():
                     "Analizando documento..."
                 ):
 
-                    resultado = analyze(
-                        archivo.name,
-                        datos,
-                    )
+                    if semanal:
+                        resultado = analyze_weekly_sales(archivos, inicio, moneda)
+                        cierre = resultado["cierre"]
+                        conciliacion = {}
+                        for code, referencia in referencias.items():
+                            if not re.fullmatch(r"[0-9]{1,15}(?:[.,][0-9]{1,2})?", referencia):
+                                raise ValueError(f"Introduce un total de referencia {code} sin miles y con hasta dos decimales.")
+                            esperado = sales_amount(referencia.replace(",", "."))
+                            total = cierre["ingresos_por_moneda"].get(code)
+                            calculado = sales_amount(total) if total is not None else None
+                            conciliacion[code] = {
+                                "total_referencia": str(esperado),
+                                "diferencia": str(calculado - esperado) if calculado is not None else None,
+                                "conciliado": calculado == esperado,
+                            }
+                        cierre["referencias"] = conciliacion
+                    else:
+                        resultado = analyze(*archivos[0])
 
                     excel = make_excel(resultado)
 
@@ -512,6 +587,8 @@ def mostrar_panel():
                         ),
                         "perfiles": indicadores,
                     }
+                    if semanal:
+                        totales["cierre"] = resultado["cierre"]
 
                     st.session_state.rp_resultado = {
                         "clave": clave,
@@ -528,9 +605,8 @@ def mostrar_panel():
 
                 limpiar_analisis()
 
-                st.error(
-                    f"Error durante el análisis: {exc}"
-                )
+                mensaje = str(exc) if isinstance(exc, ValueError) else "Revisa el formato de los archivos."
+                st.error(f"Error durante el análisis: {mensaje}")
 
         actual = st.session_state.rp_resultado
 
@@ -541,7 +617,7 @@ def mostrar_panel():
                 empresa,
                 usuario,
                 invitado,
-                archivo.name,
+                actual["resultado"]["archivo"],
             )
 
     # ----------------------------------------------
@@ -583,6 +659,30 @@ def mostrar_panel():
                     width="stretch",
                 )
 
+                cierres = []
+                for reporte in historial:
+                    indicadores = reporte["indicadores"]
+                    cierre = indicadores.get("cierre") if isinstance(indicadores, dict) else None
+                    if cierre:
+                        totales_moneda = cierre.get("ingresos_por_moneda")
+                        if totales_moneda is None:
+                            totales_moneda = {"Sin especificar": indicadores["perfiles"]["ventas"]["ingresos_totales"]}
+                        for code, total in totales_moneda.items():
+                            referencia_guardada = cierre.get("referencias", {}).get(code, {}).get(
+                                "total_referencia", cierre.get("total_referencia", "Sin referencia"),
+                            )
+                            cierres.append({
+                                "Reporte": reporte["id"], "Desde": cierre["inicio"], "Hasta": cierre["fin"],
+                                "Moneda": code, "Ingresos": total, "Total de referencia": referencia_guardada,
+                            })
+                if cierres:
+                    st.subheader("Cierres semanales de ventas")
+                    st.dataframe(
+                        pd.DataFrame(cierres).sort_values(["Desde", "Reporte"], ascending=False),
+                        hide_index=True,
+                        width="stretch",
+                    )
+
                 st.caption(
                     "El historial almacena indicadores, "
                     "no los archivos PDF o Excel."
@@ -622,6 +722,18 @@ def mostrar_resultados(
     st.success("¡Análisis completado!")
 
     st.header("3. Resultados del análisis")
+    cierre = resultado.get("cierre")
+    if cierre:
+        st.write(f"Semana del {cierre['inicio']} al {cierre['fin']}")
+        for code, total in cierre["ingresos_por_moneda"].items():
+            st.metric(f"Ingresos válidos en {code}", f"{total:,.2f}")
+        for code, reference in cierre["referencias"].items():
+            if reference["conciliado"]:
+                st.success(f"{code}: los ingresos coinciden con el total de referencia.")
+            elif reference["diferencia"] is None:
+                st.warning(f"{code}: hay una referencia, pero faltan ventas válidas en esa moneda.")
+            else:
+                st.warning(f"{code}: diferencia frente a la referencia (calculado menos referencia): {reference['diferencia']}.")
 
     col1, col2, col3 = st.columns(3)
 
@@ -675,11 +787,11 @@ def mostrar_resultados(
 
                 if not desglose.empty:
 
-                    st.bar_chart(
-                        desglose.set_index(
-                            "Periodo"
-                        )["Ingresos"]
-                    )
+                    if cierre:
+                        for code, rows in desglose.groupby("Moneda"):
+                            st.bar_chart(rows, x="Periodo", y="Ingresos", y_label=f"Ingresos en {code}")
+                    else:
+                        st.bar_chart(desglose.set_index("Periodo")["Ingresos"])
 
     # ----------------------------------------------
     # HOJAS NO RECONOCIDAS
@@ -730,6 +842,8 @@ def mostrar_resultados(
     seguro = nombre_seguro(
         empresa["nombre"]
     )
+    if cierre:
+        seguro = f"{seguro}_{cierre['inicio']}"
 
     if formato == "PDF":
 
@@ -789,6 +903,13 @@ def mostrar_resultados(
             "análisis ni modificar historiales."
         )
 
+    elif cierre and (
+        totales["registros_con_incidencias"] or not totales["registros_validos"]
+        or any(not reference["conciliado"] for reference in cierre["referencias"].values())
+    ):
+        st.warning("Para guardar el cierre, revisa las incidencias, verifica que haya ventas válidas "
+                   "y corrige cualquier diferencia con el total de referencia. Luego vuelve a analizar.")
+
     elif actual["guardado"]:
 
         st.success(
@@ -839,6 +960,26 @@ def mostrar_mi_cuenta(usuario):
     st.divider()
 
     st.subheader("⚙️ Mi cuenta")
+
+    numero_bot = os.environ.get("REPORTESPRO_WHATSAPP_NUMERO", "")
+    if numero_bot and usuario.get("rol") != "admin":
+        with st.expander("WhatsApp"):
+            with st.form("form_whatsapp"):
+                numero = st.text_input("Tu número con código de país")
+                generar = st.form_submit_button("Generar código de vinculación")
+            version = st.session_state["rp_version_sesion"]
+            try:
+                if generar:
+                    codigo = generar_codigo(usuario["id"], version, numero)
+                    st.write(f"Envía este código al número {numero_bot} en los próximos 10 minutos.")
+                    st.code(codigo, language=None)
+                if st.button("Desvincular WhatsApp"):
+                    desvincular(usuario["id"], version)
+                    st.success("Se retiró el acceso de WhatsApp.")
+            except (ValueError, PermissionError) as exc:
+                st.error(str(exc))
+            except sqlite3.Error:
+                st.error("La vinculación de WhatsApp no está disponible en este momento.")
 
     with st.expander(
         "Desactivar mi cuenta"

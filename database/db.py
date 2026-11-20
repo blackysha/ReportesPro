@@ -271,7 +271,7 @@ def guardar_reporte(
 # CONSULTAR HISTORIAL
 # =========================================
 
-def listar_reportes(empresa_id, perfil=None, _conexion=None):
+def listar_reportes(empresa_id, perfil=None, _conexion=None, *, limite=None, reporte_id=None):
     """
     Devuelve los reportes de una empresa.
 
@@ -312,7 +312,13 @@ def listar_reportes(empresa_id, perfil=None, _conexion=None):
             consulta += " AND perfil = ?"
             parametros.append(perfil)
 
+        if reporte_id is not None:
+            consulta += " AND id = ?"
+            parametros.append(reporte_id)
         consulta += " ORDER BY id DESC"
+        if limite is not None:
+            consulta += " LIMIT ?"
+            parametros.append(limite)
 
         filas = conexion.execute(
             consulta,
@@ -610,12 +616,16 @@ def guardar_reporte_usuario(
         return guardar_reporte(empresa_id, archivo, indicadores, perfil, _conexion=conexion)
 
 
-def listar_reportes_usuario(usuario_id, empresa_id, version_sesion=None):
+def listar_reportes_usuario(
+    usuario_id, empresa_id, version_sesion=None, *, limite=None, reporte_id=None
+):
     """Consulta el historial solo si pertenece al usuario."""
     with conectar() as conexion:
         conexion.execute("BEGIN")
         _verificar_acceso(conexion, usuario_id, empresa_id, version_sesion)
-        return listar_reportes(empresa_id, _conexion=conexion)
+        return listar_reportes(
+            empresa_id, _conexion=conexion, limite=limite, reporte_id=reporte_id
+        )
 
 
 def _verificar_acceso(conexion, usuario_id, empresa_id, version_sesion=None):

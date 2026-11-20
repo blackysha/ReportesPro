@@ -22,6 +22,11 @@ Consultar ESTADO_PROYECTO.md y docs/OPERACION.md antes de continuar.
 
 ## Cambios
 
+- Al terminar y verificar una tarea solicitada por el propietario, actualizar
+  `docs/avances.html` con la fecha, el resultado y las comprobaciones relevantes.
+  El registro se comparte en la red local. Conservar fuera de él datos de clientes,
+  nombres de cuentas, secretos, rutas privadas y detalles innecesarios.
+
 - Crear respaldo en backups/ antes de modificar archivos importantes.
 - Conservar cambios previos del usuario. No descartar ni sobrescribir trabajo ajeno.
 - Se pueden editar y probar correcciones reversibles dentro del alcance autorizado.

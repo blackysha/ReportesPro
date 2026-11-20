@@ -181,3 +181,263 @@ Comandos:
 Leer AGENTS.md, este archivo y docs/OPERACION.md. Revisar git status y conservar
 cambios previos. Continuar desde la decisión de destino y los pendientes; no
 repetir el diagnóstico ni crear otra aplicación desde cero.
+
+## Actualización 12/11/2026: accesos para prueba física
+
+IP Wi-Fi comprobada con ipconfig: 192.168.1.86. Se respaldaron red.json,
+identidad pública, certificado público y este estado antes de regenerar TLS.
+Certificado y configuración regenerados para https://192.168.1.86:8502/.
+Los accesos privados de ayer conservan la URL antigua; usar la nueva URL.
+Se añadió Accesos ReportesPro/ con lanzador CMD, acceso web URL y guía de cinco
+PC. Se intentó crear un acceso a esa carpeta en el escritorio; consultar resultado
+de la sesión. No se cambiaron cuentas, claves ni datos de la base real.
+51 pruebas aisladas aprobadas (19,373 s); pip check sin incompatibilidades.
+El servidor LAN no se inició y el firewall no se modificó. Pendiente iniciar
+manualmente y comprobar confianza TLS y conectividad desde las cinco PC reales.
+No se publicó un enlace de Internet; requiere la misma red local.
+
+## Actualización 12/11/2026: preparación de HTTPS para celulares
+
+El aviso de Brave se debe al certificado autofirmado de la entrada LAN. No se
+desactivaron verificaciones de certificados ni se sustituyó HTTPS por HTTP en
+la red. La IP anterior conserva su certificado y seguirá mostrando el aviso.
+
+Se añadió CSS estático en web_app.py para pestañas que se distribuyen en varias
+filas, controles táctiles y campos de 16px en pantallas de hasta 640px. Se respaldó
+web_app.py y este estado antes de editar, en backups/https_movil_*/.
+
+Se prepararon run_acceso_seguro.ps1, scripts/instalar_conector_https.ps1 y dos
+accesos CMD. El instalador descarga el ejecutable oficial y valida SHA256 con
+el digest de GitHub. El lanzador prepara un Quick Tunnel de pruebas con URL
+HTTPS temporal, backend exclusivo en loopback:8503 y modo lan que rechaza admin.
+Conserva CORS/XSRF; publica únicamente al ejecutarlo, termina el túnel al salir
+y no toca el servidor administrativo 8501 ni las credenciales. La URL generada
+queda excluida de Git. Instrucciones y pruebas físicas: docs/ACCESO_SEGURO_MOVIL.md.
+
+Validación: 51 pruebas aisladas aprobadas en 21,481 s, pip check OK y sintaxis
+PowerShell comprobada. La red del entorno impidió consultar la API de GitHub;
+no se descargó ni ejecutó cloudflared. No se inició servidor real, no se publicó
+un enlace y no se verificaron certificado externo, WebSocket o teléfonos físicos.
+No se declara resuelto el acceso HTTPS hasta completar esa puesta en marcha.
+Pendientes: confirmar alcance Wi-Fi/Internet y dominio, instalar conector desde
+Windows y probar Android/iPhone. Quick Tunnel es temporal para pruebas; para
+producción siguen pendientes dominio/túnel permanente y controles de OPERACION.md.
+
+## Revisión 16/11/2026: comprobación de últimos cambios
+
+Primera ronda: 51 pruebas aprobadas en 15,994 s; pip check, diagnóstico de
+solo lectura, AST de 38 archivos Python, seis scripts PowerShell y diff check OK.
+Un administrador y cuatro empresas sin propietario. Se comprobó la existencia
+del conector HTTPS y de un acceso temporal, sin ejecutarlo ni validar su binario.
+No se verificaron dispositivos físicos ni el enlace público. La revisión anterior
+contenía caracteres dañados al escribir desde consola; esta sección los corrige.
+
+## Avance 16/11/2026: tres primeros pendientes
+
+Pedido: avanzar en dispositivos, propiedad y recuperación. Antes del punto 4,
+mostrar al propietario el proceso completo de publicación para que pueda aprender.
+Ese punto no se ha iniciado; no se ha publicado la aplicación por Internet.
+
+Cambios y resultados:
+
+- ipconfig confirma Wi-Fi 192.168.1.102, diferente de 192.168.1.86. Se respaldaron
+  configuración TLS, identidad pública, certificado público, accesos y estado en
+  backups/validacion_tres_puntos_20261116_114054/. Se regeneró TLS para la IP actual
+  y se actualizaron el acceso URL y la guía de cinco PC. Clave privada fuera de Git.
+- HTTPS y WebSocket comprobados realmente en loopback con certificado y hostname
+  verificados y SQLite sintético: 29 elementos de interfaz, sin excepción.
+  scripts/verificar_https_local.py reproduce esa prueba y termina su propio servidor.
+- Intento de Chrome: Page.enable agotó el tiempo de espera. Una comprobación
+  directa mostró procesos GPU rechazados por permisos; no se validó el CSS visual.
+  scripts/verificar_navegador.mjs prepara prueba aislada de cuatro tamaños y guarda
+  resultados privados en backups/. No se desactivó el sandbox de Chrome.
+- database/ownership.py y scripts/asignar_empresas.py preparan asignaciones
+  explícitas, vista previa por defecto, respaldo antes de aplicar, autenticación
+  administrativa en la consola y auditoría transaccional. No fusionan ni borran.
+  Se espera el mapa de propietarios del usuario; ninguna empresa real se reasignó.
+- database/admin_recovery.py y scripts/recuperar_admin_local.py implementan el
+  procedimiento local documentado, con vista previa, contraseña oculta, respaldo,
+  control de versión, invalidación de sesiones y auditoría en la misma transacción.
+  Solo se ejecutó la vista previa real. No se cambiaron claves reales.
+  Confía en la protección de Windows y del archivo SQLite; no incorpora TOTP ni
+  añade autenticación remota. La recuperación pública de admin sigue bloqueada.
+- Se añadió EMPRESA_ASIGNADA a los eventos permitidos de auditoría.
+- scripts/verificar_smtp.py: presencia de campos OK; conexión sin autenticación
+  ni envío rechazada con PermissionError por el entorno. No se verificaron claves
+  SMTP ni entrega. Falta el destinatario autorizado. La URL pública permanente
+  sigue sin configurarse; no se puede validar un enlace definitivo de recuperación.
+- tests/test_ownership.py y tests/test_admin_recovery.py: preservación de datos,
+  permisos, aislamiento, concurrencia por versión y rollback de auditoría.
+  La primera ronda nueva tenía una expectativa incorrecta de acceso denegado en
+  una prueba; se corrigió para esperar PermissionError, el contrato existente.
+- Suite final: **58 pruebas aprobadas, 0 fallos**, en 17,460 s. pip check,
+  diagnóstico de integridad/configuración y git diff --check correctos.
+- Procedimiento, comandos, límites y pendientes en docs/VALIDACION_Y_RECUPERACION.md.
+
+No se alteraron usuarios, contraseñas, roles, empresas o reportes reales. No se
+inició servidor sobre la base real, túnel público ni se modificó el firewall.
+Se conservaron los cambios previos sin commit. No se ejecutó push.
+
+Para completar el pedido hacen falta: respuesta sobre dispositivos disponibles,
+asignación explícita de las cuatro empresas y destinatario autorizado para un
+mensaje de prueba. SMTP requiere ejecutarse desde Windows con red disponible si
+persiste la restricción de este entorno. No marcar estos puntos como completados.
+
+## Continuación 16/11/2026: recuperación desde la interfaz
+
+El propietario pidió continuar después de identificar las cuatro empresas y su
+cuenta administrativa. Se mantuvo pendiente la asignación: no hay un mapa
+empresa/usuario autorizado. Sigue vigente explicar archivos, comandos y finalidad
+antes de cada ejecución del punto 4; no se inició publicación ni operación externa.
+
+Se añadieron cuatro pruebas AppTest en tests/test_web.py:
+
+- Solicitar recuperación de usuario normal, capturar el correo simulado, abrir
+  su enlace HTTPS en la interfaz, cambiar contraseña, limpiar el token de la URL,
+  comprobar versión de sesión, rechazo de clave anterior y de reutilización.
+- Administrador y cuenta inexistente: misma respuesta pública sin correo ni token.
+- Error SMTP: respuesta genérica sin mostrar el detalle técnico privado.
+- Confirmación distinta: rechazar el cambio sin consumir el enlace.
+
+Resultado: **62 pruebas aprobadas, cero fallos**, en 20,452 s. Todas las escrituras
+fueron en SQLite temporal y los correos de la suite se simularon. HTTPS/WebSocket
+local aislado volvió a pasar (29 elementos); diagnóstico real de solo lectura OK.
+git diff --check sin errores. No hubo cambios de código funcional en esta ronda.
+
+Se intentó un único mensaje SMTP sin tokens ni claves hacia la cuenta identificada
+por el propietario. Resultado: PermissionError; no se completó el envío. No se
+reintentó ni se alteró la configuración privada. Probar desde PowerShell normal
+de Windows con scripts.verificar_smtp --conexion --enviar y confirmar recepción.
+Este mensaje de prueba no restablece la contraseña del administrador.
+
+Respaldo previo: backups/recuperacion_interfaz_20261116_122503/.
+Las empresas y credenciales reales se conservaron. Siguen pendientes las pruebas
+físicas, el mapa de propietarios y la entrega real por SMTP.
+
+## Continuación 16/11/2026: guía de publicación para el propietario
+
+Se recuperó el contexto desde este registro y los documentos locales; no se
+dispuso del texto completo del otro chat. Se añadió docs/PUBLICAR_PASO_A_PASO.md
+con explicación del error «Hola» en la terminal, comandos PowerShell, diferencias
+entre local/LAN/Internet, uso del lanzador HTTPS existente, ruta hacia un dominio
+permanente y consecuencias de trasladar Python/SQLite a otro servidor.
+docs/REGISTRO_DISPOSITIVOS.md permite documentar pruebas físicas sin marcarlas
+como realizadas. README_WEB.md enlaza la guía. No cambió código funcional.
+
+Respaldo previo de estado y README: backups/guia_publicacion_20261116_212036/.
+Verificación: unittest discover -s tests -v terminó con código 0; pip check
+sin requisitos incompatibles; git diff --check sin errores (avisos de finales
+de línea en archivos previamente modificados). No se añadieron pruebas para
+estos cambios de documentación. Se conservaron los cambios anteriores.
+
+Se consultó documentación oficial de Cloudflare y Streamlit. No se ejecutó
+instalación del conector, túnel, despliegue, envío de correo ni cambios de datos
+reales. La elección PC/servidor y dominio sigue pendiente del propietario.
+La guía prepara el punto 4 para revisión; no equivale a publicación completada.
+Persisten el mapa de propietarios, SMTP real y dispositivos físicos pendientes.
+
+## Cierre solicitado: retomar el 17/11/2026
+
+El propietario pidió guardar el avance para mañana y detener el trabajo aquí.
+Los archivos y cambios previos quedan conservados localmente, sin commit nuevo,
+push ni publicación. Este registro resume el contexto; no es una copia literal
+del historial de chat.
+
+Para retomar: leer AGENTS.md, este estado, docs/OPERACION.md y
+docs/PUBLICAR_PASO_A_PASO.md; revisar git status sin descartar cambios.
+La guía de publicación y docs/REGISTRO_DISPOSITIVOS.md ya están guardados.
+La última suite terminó con código 0, pip check pasó y diff --check no tuvo errores.
+
+Continuar con la elección pendiente: mantener esta PC como servidor o usar uno
+permanente, y confirmar si dispone de dominio/proveedor. Después completar las
+pruebas físicas, el mapa autorizado de propietarios de cuatro empresas y SMTP.
+Conservar la publicación como etapa final y explicar archivos, comandos y finalidad
+antes de ejecutarlos para que el propietario aprenda el proceso. No declarar
+compatibilidad con todos los móviles sin pruebas ni publicar datos reales como demo.
+No repetir provisión de cuentas, cambios de contraseñas ni migraciones anteriores.
+
+## Piloto de WhatsApp del 18/11/2026
+
+El flujo implementado permite vincular y desvincular un número desde Mi cuenta,
+consultar el último reporte de una empresa propia y pedir un PDF de sus indicadores.
+El código dura diez minutos y solo funciona desde el número que se indicó al
+generarlo. El webhook verifica la firma de Meta y está preparado para ejecutarse
+en un proceso local separado. El bot queda habilitado en la interfaz al configurar
+`REPORTESPRO_WHATSAPP_NUMERO` para cuentas de usuario.
+
+Cambios en `services/whatsapp.py`, `services/whatsapp_webhook.py`, `web_app.py`,
+`database/db.py`, `requirements.txt` y `tests/test_whatsapp.py`.
+Respaldo previo de código y estado en `backups/whatsapp_20261118_122934/`.
+La guía [docs/WHATSAPP.md](docs/WHATSAPP.md) detalla el piloto.
+La suite completa pasó con 66 pruebas. Las pruebas de WhatsApp usaron SQLite
+temporal y simularon las respuestas de Meta.
+Queda pendiente confirmar `hello_world` en Meta y conectar el callback HTTPS
+con una instancia de prueba y datos sintéticos para validar la entrega real.
+
+## Cierre semanal de ventas del 19/11/2026
+
+El análisis y las exportaciones existentes ya cubrían la validación por fila,
+la consolidación entre hojas y el historial por empresa. El flujo nuevo añade
+la carga de varios archivos, la semana de lunes a domingo, los ingresos por día
+y la comparación opcional con un total independiente. Las incidencias identifican
+archivo, hoja y registro. Los archivos idénticos se rechazan por contenido.
+El guardado exige ventas válidas, cero incidencias y coincidencia con la referencia
+si se introdujo una. El historial muestra los ingresos por semana y guarda los
+metadatos del cierre en el JSON existente. Se conserva el análisis de un documento.
+
+Verificación: 69 pruebas aprobadas y `pip check` correcto. La prueba del panel
+inyecta archivos sintéticos, comprueba el bloqueo por diferencia y verifica el
+guardado y el historial en SQLite temporal. El respaldo de código y documentación
+se guardó en `backups/cierre_semanal_20261119_094254/`. No se cambió el esquema
+ni se operó sobre la base real.
+
+El siguiente hito es un piloto con un encargado y un cierre aprobado. Queda
+por comprobar el ahorro de tiempo y la autonomía de uso. Los archivos distintos
+pueden solaparse y el flujo requiere cantidades positivas y una sola moneda.
+Ver [instrucciones del cierre](README_WEB.md#cierre-semanal-de-ventas).
+
+## Cierre multimoneda del 19/11/2026
+
+El cierre semanal admite DOP, USD y EUR en una misma carga. La columna `moneda`
+identifica la divisa por fila. Para hojas sin esa columna, el operador puede
+seleccionar una moneda predeterminada. Las celdas vacías dentro de una columna
+`moneda` y los códigos no admitidos generan incidencias.
+
+Los totales, la serie diaria, las referencias, el PDF, el Excel y el historial
+mantienen las monedas separadas, sin conversión cambiaria. El CSV conserva la
+moneda por fila. Los cierres históricos sin moneda se muestran como «Sin
+especificar» y conservan sus importes. No se modificó la base real.
+
+Pasaron las 70 pruebas y `pip check`. Una comprobación adicional del panel
+verificó que un cierre antiguo y uno multimoneda aparecen juntos en el historial.
+Respaldo previo en `backups/monedas_20261119_095820/`.
+
+## Accesos de escritorio y celular del 19/11/2026
+
+El acceso directo ReportesPro.lnk del escritorio ejecuta el lanzador local desde
+la carpeta activa y abre el navegador en el puerto 8501. Al iniciar con el
+acceso directo, Streamlit vuelve a ejecutar el código guardado cuando detecta
+cambios. Si ya responde una instancia local, abre esa instancia.
+
+El registro en `docs/avances.html` se sirve por separado en el puerto 8504 de
+la interfaz Wi-Fi. El enlace al momento de la entrega es
+`http://192.168.1.124:8504/avances`. Al abrir el acceso directo, el lanzador
+muestra la dirección Wi-Fi detectada e inicia el registro si hace falta.
+AGENTS.md indica actualizarlo al completar y verificar cada tarea.
+
+Verificación: destino y argumentos del acceso directo leídos después de
+guardarlo, sintaxis de PowerShell válida, Streamlit aislado con respuesta 200
+y la página de avances accesible por su IP Wi-Fi desde la PC. El registro
+respondió 404 ante una ruta a la base de datos. Queda por comprobar desde
+un celular físico conectado al mismo Wi-Fi. No se publicó en Internet ni se
+modificó el firewall o la base real. Respaldo previo en
+`backups/accesos_20261119_101152/`.
+
+## Copia de desarrollo para colaborar
+
+DESARROLLO.md explica como clonar la rama y abrir una copia local con SQLite
+separado. Se preparo un ZIP con codigo y CSV sinteticos. Se verificaron la
+integridad del ZIP y la apertura del formulario de registro desde una extraccion
+limpia con SQLite temporal. Pasaron 70 pruebas y pip check. La publicacion de la
+rama y la comprobacion de visibilidad siguen pendientes por falta de conexion
+con GitHub desde este entorno.

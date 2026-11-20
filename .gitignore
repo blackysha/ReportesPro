@@ -49,6 +49,7 @@ LAPTOP_*_ACCESO.txt
 !.vscode/launch.json
 !.vscode/extensions.json
 .local/
+Accesos ReportesPro/3 - Abrir enlace seguro temporal.url
 *.key
 *.pem
 contraseñas/
